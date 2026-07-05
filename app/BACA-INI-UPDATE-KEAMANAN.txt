@@ -1,0 +1,100 @@
+=========================================================================
+PAKET v3.1 - VERSI DIPERKUAT KEAMANANNYA (aman dibagikan ke stranger)
+=========================================================================
+Ini update dari paket sebelumnya. Perubahan utama: anon key publik yang
+ikut ter-bundle di aplikasi SEKARANG TIDAK BISA lagi dipakai untuk
+menghapus/mengubah data langsung. Semua tambah/ubah/hapus data (mahasiswa
+maupun akun user) wajib lewat "pintu khusus" (Supabase Edge Function)
+yang mewajibkan login valid dulu.
+
+ADA 3 LANGKAH SETUP YANG WAJIB DILAKUKAN DULU (sekali saja, di akun
+Supabase kamu) SEBELUM build ulang .exe-nya. Ikuti urutan di bawah ini
+PERSIS - jangan dibalik urutannya, supaya aplikasi tidak "putus" saat
+proses berlangsung.
+
+=========================================================================
+LANGKAH 1 - DEPLOY EDGE FUNCTION
+=========================================================================
+1. Buka dashboard Supabase project kamu (project yang sama dengan yang
+   dipakai aplikasi ini - cek db.properties untuk mastiin project mana)
+2. Klik menu "Edge Functions" di sidebar kiri
+3. Klik "Deploy a new function" / "Create function"
+4. Nama function: app-api   (HARUS PERSIS, huruf kecil semua)
+5. Buka file "app-api-edge-function.ts" yang ada di paket ini, copy
+   SELURUH isinya, paste ke editor Edge Function di dashboard
+   (hapus dulu kode contoh yang sudah ada di situ)
+6. Klik "Deploy"
+7. Masih di halaman Edge Functions, cari tab/menu "Secrets"
+   (kadang di Settings -> Edge Functions -> Secrets)
+8. Tambah secret baru:
+     Nama  : SESSION_SECRET
+     Nilai : ketik/tempel teks acak yang panjang (minimal 32 karakter).
+             Bisa pakai generator UUID online, atau ngetik sembarang
+             kalimat panjang yang cuma kamu yang tau.
+   PENTING: jangan sampai secret ini bocor ke siapapun, dan jangan sama
+   dengan anon key atau service_role key.
+
+=========================================================================
+LANGKAH 2 - PERKETAT RLS (Row Level Security)
+=========================================================================
+1. Masih di dashboard Supabase, buka menu "SQL Editor"
+2. New query, paste seluruh isi file "SETUP-SUPABASE-UPDATE.sql" yang
+   ada di paket ini
+3. Run
+
+Setelah ini, anon key publik cuma bisa BACA data mahasiswa & log
+aktivitas - tidak bisa baca/tulis apapun ke tabel users, dan tidak bisa
+tulis apapun ke tabel manapun secara langsung.
+
+=========================================================================
+LANGKAH 3 - BUILD ULANG .EXE
+=========================================================================
+Jar di paket ini ("PendataanMahasiswa.jar") sudah versi baru yang tau
+cara bicara ke Edge Function. Tinggal build ulang .exe-nya persis seperti
+sebelumnya:
+
+1. Double-klik "1-BUAT-APLIKASI-EXE.bat" (butuh JDK 17+ terinstall)
+2. Tunggu sampai "SELESAI!"
+3. Folder "PendataanMahasiswa-App" siap di-zip dan dibagikan
+
+=========================================================================
+CARA TES SEBELUM DIBAGIKAN
+=========================================================================
+1. Jalankan aplikasi hasil build, login pakai admin/admin123 atau
+   user/user123
+2. Coba tambah 1 data mahasiswa -> harus berhasil normal
+3. Coba login dengan password salah -> harus muncul "Password salah!"
+4. (Opsional, buat mastiin proteksinya jalan) - coba akses langsung
+   lewat browser/Postman ke:
+     https://xxxxx.supabase.co/rest/v1/mahasiswa
+   pakai header apikey: (anon key kamu) dengan method DELETE atau
+   POST -> harusnya sekarang GAGAL (403/401), beda dengan sebelumnya
+   yang pasti berhasil walau tanpa login sama sekali.
+
+=========================================================================
+YANG BERUBAH DI SISI KODE (buat referensi, kalau nanti mau dikembangkan lagi)
+=========================================================================
+- SupabaseClient.java  : ditambah method callFunction() untuk manggil
+                         Edge Function "app-api"
+- DatabaseHelper.java  : login, logActivity, insert/update/delete
+                         mahasiswa & user sekarang lewat callFunction(),
+                         bukan langsung ke tabel. Baca data (SELECT)
+                         tetap langsung lewat anon key seperti sebelumnya.
+- LoginForm.java       : pakai DatabaseHelper.login() yang baru,
+                         menyimpan token sesi di memori (bukan password)
+
+=========================================================================
+YANG PERLU KAMU TAHU (batasan yang masih ada)
+=========================================================================
+- Data mahasiswa & log aktivitas MASIH bisa dibaca siapapun yang pegang
+  anon key (misal lewat Postman) - ini disengaja supaya fitur baca data
+  di aplikasi tetap jalan tanpa perlu login dulu untuk sekadar melihat.
+  Kalau kamu mau data mahasiswa juga TIDAK BISA dibaca tanpa login,
+  bilang aja - itu bisa diterapkan juga (dengan konsekuensi: fitur
+  realtime jadi harus diubah caranya).
+- Realtime (auto-refresh) untuk tabel "users" kemungkinan tidak jalan
+  lagi setelah update ini, karena Supabase Realtime menghormati RLS -
+  tabel yang tidak boleh dibaca anon juga tidak akan mengirim event
+  realtime ke anon. Tidak masalah besar, karena tab "Kelola User" masih
+  tetap ter-update lewat timer cadangan (20 detik) seperti sebelumnya.
+  Realtime untuk data mahasiswa & log aktivitas tetap jalan normal.

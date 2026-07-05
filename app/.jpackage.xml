@@ -1,0 +1,6 @@
+<?xml version="1.0" ?>
+<jpackage-state version="26" platform="windows">
+  <app-version>3.0</app-version>
+  <main-launcher name="PendataanMahasiswa">
+    <description>PendataanMahasiswa</description>
+  </main-launcher></jpackage-state>

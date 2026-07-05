@@ -1,0 +1,12 @@
+# Compiled class files
+*.class
+*.jar
+
+# Executables & Binaries
+*.exe
+*.dll
+/runtime/
+
+# Secrets & Configs (SANGAT PENTING)
+db.properties
+.env
